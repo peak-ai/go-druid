@@ -17,10 +17,18 @@ import (
 var (
 	// ErrPinging is an error returned when health check endpoint returns a non 200.
 	ErrPinging = errors.New("druid: error fetching health info from druid")
+
 	// ErrCancelled is an error returned when we receive a cancellation event from a context object
 	ErrCancelled = errors.New("druid: cancellation received")
+
 	// ErrRequestForm is an error returned when failing to form a request
 	ErrRequestForm = errors.New("druid: error forming request")
+
+	// ErrCreatingRequest is an error when creating a new request
+	ErrCreatingRequest = errors.New("druid: error creating new request")
+
+	// ErrMakingRequest is an error whilst making a request to the druid server itself
+	ErrMakingRequest = errors.New("druid: error making request to druid server")
 )
 
 type key int
@@ -100,10 +108,12 @@ func (c *connection) startRequestPipeline() {
 					c.errorCh <- err
 					return
 				}
+
 				body, err := ioutil.ReadAll(res.Body)
 				if err != nil {
 					c.errorCh <- err
 				}
+
 				c.resultsCh <- body
 			case <-c.closeCh:
 				return
@@ -117,7 +127,7 @@ func (c *connection) Query(q string, args []driver.Value) (driver.Rows, error) {
 	return c.query(q, args)
 }
 
-func (c *connection) makeRequest(q string) (req *http.Request, err error) {
+func (c *connection) makeRequest(q string) (*http.Request, error) {
 	queryURL := fmt.Sprintf("%s%s", c.Cfg.BrokerAddr, c.Cfg.QueryEndpoint)
 	request := &queryRequest{
 		Query:        q,
@@ -130,7 +140,7 @@ func (c *connection) makeRequest(q string) (req *http.Request, err error) {
 		return nil, ErrRequestForm
 	}
 
-	req, err = http.NewRequest("POST", queryURL, bytes.NewReader(payload))
+	req, err := http.NewRequest("POST", queryURL, bytes.NewReader(payload))
 	if err != nil {
 		return nil, ErrRequestForm
 	}
@@ -138,7 +148,7 @@ func (c *connection) makeRequest(q string) (req *http.Request, err error) {
 	// Without setting this explicitly, Druid returns a 415 err
 	req.Header.Set("Content-Type", "application/json")
 
-	return
+	return req, nil
 }
 
 func (c *connection) parseResponse(body []byte) (r *rows, err error) {
@@ -186,12 +196,12 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 	req, err := c.makeRequest(q)
 	if err != nil {
-		return &rows{}, err
+		return &rows{}, ErrCreatingRequest
 	}
 
 	res, err := c.Client.Do(req)
 	if err != nil {
-		return &rows{}, err
+		return &rows{}, ErrMakingRequest
 	}
 
 	code := res.StatusCode
@@ -210,11 +220,13 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 func (c *connection) queryContext(ctx context.Context, q string, args []driver.NamedValue) (*rows, error) {
 	req, err := c.makeRequest(q)
 	if err != nil {
-		return &rows{}, errors.New("druid: error making request")
+		return &rows{}, ErrCreatingRequest
 	}
 
-	// @todo check if we need to use this
-	_ = req.WithContext(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	req = req.WithContext(ctx)
 
 	c.requestCh <- req
 	tr := &http.Transport{}
@@ -230,7 +242,6 @@ func (c *connection) queryContext(ctx context.Context, q string, args []driver.N
 		}
 	case err = <-c.errorCh:
 	case <-ctx.Done():
-		tr.CancelRequest(req)
 		err = ctx.Err()
 		return r, err
 	}
@@ -238,6 +249,7 @@ func (c *connection) queryContext(ctx context.Context, q string, args []driver.N
 	return r, err
 }
 
+// QueryContext -
 func (c *connection) QueryContext(ctx context.Context, q string, args []driver.NamedValue) (driver.Rows, error) {
 	vals, err := namedValuesToValues(args)
 	if err != nil {
