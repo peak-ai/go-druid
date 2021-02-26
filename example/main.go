@@ -40,19 +40,17 @@ func main() {
 		log.Fatal("Cannot ping da ting")
 	}
 
-	rows, err := conn.Query("select comment from wikipedia")
+	rows, err := conn.Queryx("select comment from wikipedia")
 	if err != nil {
 		log.Panic(err)
 	}
 
 	for rows.Next() {
-		var (
-			comment string
-		)
-		if err := rows.Scan(&comment); err != nil {
+		var result Entry
+		if err := rows.StructScan(&result); err != nil {
 			log.Panic(err)
 		}
 
-		log.Println(comment)
+		log.Println(result)
 	}
 }
