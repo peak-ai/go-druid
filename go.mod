@@ -1,3 +1,3 @@
-module github.com/kaplanmaxe/druid
+module github.com/peak-ai/go-druid
 
-go 1.13
+go 1.15
