@@ -122,14 +122,19 @@ func (c *connection) makeRequest(q string) (req *http.Request, err error) {
 		ResultFormat: "array",
 		Header:       true,
 	}
+
 	payload, err := json.Marshal(request)
 	if err != nil {
 		return nil, ErrRequestForm
 	}
+
 	req, err = http.NewRequest("POST", queryURL, bytes.NewReader(payload))
 	if err != nil {
 		return nil, ErrRequestForm
 	}
+
+	req.Header.Set("Content-Type", "application/json")
+
 	return
 }
 
@@ -148,6 +153,7 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 	for _, val := range results[0] {
 		columnNames = append(columnNames, val.(string))
 	}
+
 	var returnedRows [][]field
 	for i := 1; i < len(results); i++ {
 		var cols []field
@@ -180,10 +186,14 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 	if err != nil {
 		return &rows{}, err
 	}
+
+	// code := res.StatusCode
+
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return &rows{}, err
 	}
+
 	return c.parseResponse(body)
 }
 
