@@ -38,15 +38,19 @@ func main() {
 		log.Fatal("Cannot ping da ting")
 	}
 
-	rows, err := conn.Query("SELECT * FROM wikipedia")
+	rows, err := conn.Query("select comment from wikipedia")
 	if err != nil {
 		log.Panic(err)
 	}
 
 	for rows.Next() {
-		result := make(map[string]interface{})
-		rows.Scan(&result)
+		var (
+			comment string
+		)
+		if err := rows.Scan(&comment); err != nil {
+			log.Panic(err)
+		}
 
-		log.Println(result)
+		log.Println(comment)
 	}
 }
