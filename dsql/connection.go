@@ -91,7 +91,7 @@ func (c *connection) Ping(ctx context.Context) (err error) {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		err = ErrPinging
 	}
 
@@ -114,6 +114,7 @@ func (c *connection) startRequestPipeline() {
 					c.errorCh <- err
 				}
 
+				// @todo do we still want to do this if there was an error above?
 				c.resultsCh <- body
 			case <-c.closeCh:
 				return
@@ -163,15 +164,19 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 		return &rows{}, sql.ErrNoRows
 	}
 
+	// Header row contains metadata about the data returned
+	header := results[0]
+	data := results[1:]
+
 	var columnNames []string
-	for _, val := range results[0] {
+	for _, val := range header {
 		columnNames = append(columnNames, val.(string))
 	}
 
 	var returnedRows [][]field
-	for i := 1; i < len(results); i++ {
+	for i := 0; i < len(data); i++ {
 		var cols []field
-		for _, val := range results[i] {
+		for _, val := range data {
 			cols = append(cols, field{Value: reflect.ValueOf(val), Type: reflect.TypeOf(val)})
 		}
 		returnedRows = append(returnedRows, cols)
@@ -181,6 +186,8 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 		columnNames: columnNames,
 		rows:        returnedRows,
 		currentRow:  0,
+		dateField:   c.Cfg.DateField,
+		dateFormat:  c.Cfg.DateFormat,
 	}
 
 	r = &rows{

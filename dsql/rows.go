@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"time"
 )
 
 type resultSet struct {
@@ -32,7 +33,7 @@ func (r *rows) Close() (err error) {
 	return
 }
 
-func (r *rows) Next(dest []driver.Value) (err error) {
+func (r *rows) Next(dest []driver.Value) error {
 	if !r.HasNextResultSet() {
 		return io.EOF
 	}
@@ -43,8 +44,27 @@ func (r *rows) Next(dest []driver.Value) (err error) {
 	}
 
 	for i := range dest {
+		// Parse pre-defined timestamp field
+		if r.resultSet.columnNames[i] == r.resultSet.dateField {
+
+			log.Println("col: ", r.resultSet.columnNames[i])
+			log.Println("date field: ", r.resultSet.dateField)
+
+			// This refers to ISO8601
+			if r.resultSet.dateFormat == "iso" {
+				t, err := time.Parse(time.RFC3339Nano, data[i].Value.Interface().(string))
+				if err != nil {
+					log.Fatal("druid: failed to parse given datetime field: ", err.Error())
+				}
+				dest[i] = t
+				continue
+			}
+
+			// @todo(e.v) - add more time formats here...
+		}
+
 		switch data[i].Type.Name() {
-		// TODO: add time.Time and []byte
+		// TODO: []byte
 		case "bool":
 			dest[i] = data[i].Value.Interface().(bool)
 		case "string":
@@ -59,9 +79,10 @@ func (r *rows) Next(dest []driver.Value) (err error) {
 			log.Fatal("druid: can't scan type ", data[i].Type.Name())
 		}
 	}
+
 	_ = r.NextResultSet()
 
-	return
+	return nil
 }
 
 // HasNextResultSet implements driver.RowsNextResultSet
