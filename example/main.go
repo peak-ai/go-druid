@@ -43,5 +43,10 @@ func main() {
 		log.Panic(err)
 	}
 
-	log.Println(rows)
+	for rows.Next() {
+		result := make(map[string]interface{})
+		rows.Scan(&result)
+
+		log.Println(result)
+	}
 }
