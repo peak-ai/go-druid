@@ -33,10 +33,7 @@ func startMockUnstartedServer(handler http.HandlerFunc) (ts *httptest.Server, ur
 func constructMockResults(header []interface{}, rows [][]interface{}) (b []byte, err error) {
 	var mockResults [][]interface{}
 	mockResults = append(mockResults, header)
-
-	for _, val := range rows {
-		mockResults = append(mockResults, val)
-	}
+	mockResults = append(mockResults, rows...)
 
 	b, err = json.Marshal(mockResults)
 	return

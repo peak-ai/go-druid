@@ -31,7 +31,7 @@ func (r *rows) Close() (err error) {
 }
 
 func (r *rows) Next(dest []driver.Value) (err error) {
-	if r.HasNextResultSet() == false {
+	if !r.HasNextResultSet() {
 		return io.EOF
 	}
 
@@ -39,6 +39,7 @@ func (r *rows) Next(dest []driver.Value) (err error) {
 	if len(data) != len(dest) {
 		return errors.New("druid: number of refs passed to scan does not match column count")
 	}
+
 	for i := range dest {
 		switch data[i].Type.Name() {
 		// TODO: add time.Time and []byte
@@ -56,24 +57,22 @@ func (r *rows) Next(dest []driver.Value) (err error) {
 			log.Fatal("druid: can't scan type ", data[i].Type.Name())
 		}
 	}
-	r.NextResultSet()
+	_ = r.NextResultSet()
 
 	return
 }
 
 // HasNextResultSet implements driver.RowsNextResultSet
 func (r *rows) HasNextResultSet() bool {
-	if r.resultSet.currentRow == len(r.resultSet.rows) {
-		return false
-	}
-	return true
+	return r.resultSet.currentRow != len(r.resultSet.rows)
 }
 
 // NextResultSet implements driver.RowsNextResultSet
 func (r *rows) NextResultSet() error {
 	r.resultSet.currentRow++
-	if r.HasNextResultSet() == false {
+	if !r.HasNextResultSet() {
 		return io.EOF
 	}
+
 	return nil
 }
