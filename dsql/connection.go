@@ -57,7 +57,7 @@ func (c *connection) Prepare(stmt string) (driver.Stmt, error) {
 
 // Close closes a connection.
 func (c *connection) Close() (err error) {
-	if c.closed == true {
+	if c.closed {
 		return
 	}
 	c.mtx.Lock()
@@ -82,9 +82,11 @@ func (c *connection) Ping(ctx context.Context) (err error) {
 		return
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode != 200 {
 		err = ErrPinging
 	}
+
 	return
 }
 
@@ -133,6 +135,7 @@ func (c *connection) makeRequest(q string) (req *http.Request, err error) {
 		return nil, ErrRequestForm
 	}
 
+	// Without setting this explicitly, Druid returns a 415 err
 	req.Header.Set("Content-Type", "application/json")
 
 	return
@@ -144,10 +147,12 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 	if err != nil {
 		return &rows{}, err
 	}
+
 	// No results returned
 	if len(results) == 0 {
 		return &rows{}, sql.ErrNoRows
 	}
+
 	var columnNames []string
 
 	for _, val := range results[0] {
@@ -168,10 +173,12 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 		rows:        returnedRows,
 		currentRow:  0,
 	}
+
 	r = &rows{
 		conn:      c,
 		resultSet: resultSet,
 	}
+
 	return r, nil
 }
 
@@ -187,7 +194,10 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 		return &rows{}, err
 	}
 
-	// code := res.StatusCode
+	code := res.StatusCode
+	if code != http.StatusOK {
+		return &rows{}, fmt.Errorf("error making query request to druid, status code: %d", code)
+	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
@@ -202,11 +212,16 @@ func (c *connection) queryContext(ctx context.Context, q string, args []driver.N
 	if err != nil {
 		return &rows{}, errors.New("druid: error making request")
 	}
-	req.WithContext(ctx)
+
+	// @todo check if we need to use this
+	_ = req.WithContext(ctx)
+
 	c.requestCh <- req
 	tr := &http.Transport{}
 	c.Client.Transport = tr
+
 	var r *rows
+
 	select {
 	case body := <-c.resultsCh:
 		r, err = c.parseResponse(body)
@@ -219,8 +234,10 @@ func (c *connection) queryContext(ctx context.Context, q string, args []driver.N
 		err = ctx.Err()
 		return r, err
 	}
+
 	return r, err
 }
+
 func (c *connection) QueryContext(ctx context.Context, q string, args []driver.NamedValue) (driver.Rows, error) {
 	vals, err := namedValuesToValues(args)
 	if err != nil {
@@ -230,5 +247,6 @@ func (c *connection) QueryContext(ctx context.Context, q string, args []driver.N
 	if ctx.Done() == nil {
 		return c.query(q, vals)
 	}
+
 	return c.queryContext(ctx, q, args)
 }

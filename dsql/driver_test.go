@@ -1,4 +1,4 @@
-package dsql_test
+package dsql
 
 import (
 	"context"
@@ -9,11 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/kaplanmaxe/druid/dsql"
 )
 
-var cfg dsql.Config = dsql.Config{
+var cfg Config = Config{
 	BrokerAddr:   "localhost:8082",
 	PingEndpoint: "/status/health",
 	// User:         "druidUsername",
@@ -35,9 +33,11 @@ func startMockUnstartedServer(handler http.HandlerFunc) (ts *httptest.Server, ur
 func constructMockResults(header []interface{}, rows [][]interface{}) (b []byte, err error) {
 	var mockResults [][]interface{}
 	mockResults = append(mockResults, header)
+
 	for _, val := range rows {
 		mockResults = append(mockResults, val)
 	}
+
 	b, err = json.Marshal(mockResults)
 	return
 }
@@ -70,13 +70,15 @@ func TestPingWithError(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	})
 	defer ts.Close()
+
 	cfg.BrokerAddr = url
 	db, err := sql.Open("druid", cfg.FormatDSN())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	err = db.Ping()
-	if err != dsql.ErrPinging {
+	if err != ErrPinging {
 		t.Fatal("expected ping error but did not receive")
 	}
 }
@@ -84,25 +86,30 @@ func TestPingWithError(t *testing.T) {
 func TestQuery(t *testing.T) {
 	header := []interface{}{"__time", "added", "channel"}
 	mockRows := [][]interface{}{{"2015-09-12T00:46:58.771Z", 36, "#en.wikipedia"}, {"2015-09-12T00:46:58.772Z", 76, "#ca.wikipedia"}}
+
 	output, _ := constructMockResults(header, mockRows)
 	ts, url := startMockServer(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(output)
+		_, _ = w.Write(output)
 		w.Header().Add("Content-Type", "application/json")
 	})
 	defer ts.Close()
+
 	cfg.BrokerAddr = url
 	db, err := sql.Open("druid", cfg.FormatDSN())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	rows, err := db.Query("SELECT __time, added, channel FROM \"wikiticker-2015-09-12-sampled\" LIMIT 10")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var channel string
 	var time string
 	var added int
@@ -110,6 +117,7 @@ func TestQuery(t *testing.T) {
 	var times []string
 	var addeds []int
 	row := 0
+
 	for rows.Next() {
 		err := rows.Scan(&time, &added, &channel)
 		if err != nil {
@@ -140,17 +148,20 @@ func TestQueryContextWithCancel(t *testing.T) {
 	output, _ := constructMockResults(header, mockRows)
 	ts, url := startMockUnstartedServer(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Second * 2)
-		w.Write(output)
+		_, _ = w.Write(output)
 		w.Header().Add("Content-Type", "application/json")
 	})
 	ts.Start()
 	defer ts.Close()
+
 	cfg.BrokerAddr = url
+
 	db, err := sql.Open("druid", cfg.FormatDSN())
-	defer db.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer db.Close()
+
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -168,16 +179,18 @@ func TestQueryWithoutCancellation(t *testing.T) {
 	mockRows := [][]interface{}{{"2015-09-12T00:46:58.771Z"}, {"2015-09-12T00:46:58.772Z"}}
 	output, _ := constructMockResults(header, mockRows)
 	ts, url := startMockServer(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(output)
+		_, _ = w.Write(output)
 		w.Header().Add("Content-Type", "application/json")
 	})
 	defer ts.Close()
 	cfg.BrokerAddr = url
 	db, err := sql.Open("druid", cfg.FormatDSN())
-	defer db.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	defer db.Close()
+
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -188,9 +201,11 @@ func TestQueryWithoutCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var time string
 	var times []string
 	row := 0
+
 	for rows.Next() {
 		err := rows.Scan(&time)
 		if err != nil {
@@ -202,6 +217,7 @@ func TestQueryWithoutCancellation(t *testing.T) {
 		times = append(times, time)
 		row++
 	}
+
 	if len(times) != len(mockRows) {
 		t.Error("Did not fetch results properly")
 	}

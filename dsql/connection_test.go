@@ -1,15 +1,13 @@
-package dsql_test
+package dsql
 
 import (
 	"database/sql"
 	"database/sql/driver"
 	"testing"
-
-	"github.com/kaplanmaxe/druid/dsql"
 )
 
 func TestPrepare(t *testing.T) {
-	cfg := dsql.Config{
+	cfg := Config{
 		BrokerAddr:   "localhost:8082",
 		PingEndpoint: "/status/health",
 	}
@@ -24,7 +22,7 @@ func TestPrepare(t *testing.T) {
 }
 
 func TestBegin(t *testing.T) {
-	cfg := dsql.Config{
+	cfg := Config{
 		BrokerAddr:   "localhost:8082",
 		PingEndpoint: "/status/health",
 	}

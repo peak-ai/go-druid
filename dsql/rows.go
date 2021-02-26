@@ -24,6 +24,8 @@ func (r *rows) Columns() (cols []string) {
 	return
 }
 
+// Close connection to druid - this doesn't do anything as it's
+// not a long lived TCP connection, uses the http/api under the hood
 func (r *rows) Close() (err error) {
 	return
 }
