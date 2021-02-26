@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"database/sql"
-
+	// "database/sql"
+	"github.com/jmoiron/sqlx"
 	"github.com/peak-ai/go-druid/dsql"
 )
 
@@ -15,12 +15,14 @@ type Entry struct {
 }
 
 // avatica is a project for making Druid compatible with the Go standard library SQL packages (and packages compliant with the standard library package)
-func newConnection() (*sql.DB, error) {
+func newConnection() (*sqlx.DB, error) {
 	cfg := dsql.Config{
 		BrokerAddr:   "localhost:8082",
 		PingEndpoint: "/status/health",
+		DateFormat:   "iso",
+		DateField:    "created_at",
 	}
-	db, err := sql.Open("druid", cfg.FormatDSN())
+	db, err := sqlx.Open("druid", cfg.FormatDSN())
 	if err != nil {
 		return nil, err
 	}

@@ -140,7 +140,7 @@ func (c *connection) makeRequest(q string) (*http.Request, error) {
 		return nil, ErrRequestForm
 	}
 
-	req, err := http.NewRequest("POST", queryURL, bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, queryURL, bytes.NewReader(payload))
 	if err != nil {
 		return nil, ErrRequestForm
 	}
@@ -164,7 +164,6 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 	}
 
 	var columnNames []string
-
 	for _, val := range results[0] {
 		columnNames = append(columnNames, val.(string))
 	}
@@ -192,7 +191,6 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 	return r, nil
 }
 
-// TODO: better error hanlding
 func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 	req, err := c.makeRequest(q)
 	if err != nil {

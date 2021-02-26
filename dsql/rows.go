@@ -12,6 +12,8 @@ type resultSet struct {
 	columnNames []string
 	currentRow  int
 	cancelled   bool
+	dateField   string
+	dateFormat  string
 }
 
 type rows struct {
