@@ -2,7 +2,6 @@ package dsql
 
 import (
 	"database/sql/driver"
-	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -37,12 +36,7 @@ func TestCanParseDateTimeField(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println(values)
-
 	resultType := reflect.TypeOf(values[0])
-
-	log.Println("result type: ", resultType)
-
 	isTime := resultType.AssignableTo(reflect.TypeOf(time.Now()))
 	if !isTime {
 		t.Fatal("not the time")
