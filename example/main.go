@@ -21,6 +21,7 @@ func newConnection() (*sqlx.DB, error) {
 		PingEndpoint: "/status/health",
 		DateFormat:   "iso",
 		DateField:    "created_at",
+		Smile:        true,
 	}
 	db, err := sqlx.Open("druid", cfg.FormatDSN())
 	if err != nil {
@@ -47,8 +48,6 @@ func main() {
 		log.Panic(err)
 	}
 	defer rows.Close()
-
-	log.Println("Got here...")
 
 	for rows.Next() {
 		var result Entry

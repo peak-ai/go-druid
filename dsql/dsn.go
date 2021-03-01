@@ -19,6 +19,10 @@ type Config struct {
 
 	// DateField field to use as the date field
 	DateField string
+
+	// Smile is whether smile encoding is enabled or not when
+	// requesting data from Druid
+	Smile bool
 }
 
 // FormatDSN formats a data source name from a config struct

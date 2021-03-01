@@ -9,9 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"sync"
+
+	"github.com/zencoder/go-smile/smile"
 )
 
 var (
@@ -146,15 +150,50 @@ func (c *connection) makeRequest(q string) (*http.Request, error) {
 		return nil, ErrRequestForm
 	}
 
-	// Without setting this explicitly, Druid returns a 415 err
 	req.Header.Set("Content-Type", "application/json")
+
+	// Selects whether or not to request as JSON, or Jackson Smile encoding
+	// https://druid.apache.org/docs/latest/querying/querying.html
+	// This might not work with SQL queries...
+	if maybeEnv("DRUID_SMILE", "false") == "true" {
+		req.Header.Set("Accept", "application/x-jackson-smile")
+	}
 
 	return req, nil
 }
 
+func (c *connection) parseJSONResponse(body []byte) (queryResponse, error) {
+	var results queryResponse
+	err := json.Unmarshal(body, &results)
+	return results, err
+}
+
+func (c *connection) parseSmileResponse(body []byte) (queryResponse, error) {
+	decoded, err := smile.DecodeToObject(body)
+	if err != nil {
+		return queryResponse{}, err
+	}
+
+	return decoded.(queryResponse), nil
+}
+
+func maybeEnv(a, b string) string {
+	val := os.Getenv(a)
+	if val == "" {
+		return b
+	}
+	return val
+}
+
 func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 	var results queryResponse
-	err = json.Unmarshal(body, &results)
+
+	if maybeEnv("DRUID_SMILE", "false") == "true" {
+		results, err = c.parseSmileResponse(body)
+	} else {
+		results, err = c.parseJSONResponse(body)
+	}
+
 	if err != nil {
 		return &rows{}, err
 	}
@@ -205,14 +244,16 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 		return &rows{}, ErrMakingRequest
 	}
 
-	code := res.StatusCode
-	if code != http.StatusOK {
-		return &rows{}, fmt.Errorf("error making query request to druid, status code: %d", code)
-	}
-
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return &rows{}, err
+	}
+
+	log.Println(string(body))
+
+	code := res.StatusCode
+	if code != http.StatusOK {
+		return &rows{}, fmt.Errorf("error making query request to druid, status code: %d", code)
 	}
 
 	return c.parseResponse(body)
