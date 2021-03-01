@@ -33,6 +33,7 @@ func (r *rows) Close() (err error) {
 	return
 }
 
+// Next value
 func (r *rows) Next(dest []driver.Value) error {
 	if !r.HasNextResultSet() {
 		return io.EOF

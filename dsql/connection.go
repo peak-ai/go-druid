@@ -164,19 +164,15 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 		return &rows{}, sql.ErrNoRows
 	}
 
-	// Header row contains metadata about the data returned
-	header := results[0]
-	data := results[1:]
-
 	var columnNames []string
-	for _, val := range header {
+	for _, val := range results[0] {
 		columnNames = append(columnNames, val.(string))
 	}
 
 	var returnedRows [][]field
-	for i := 0; i < len(data); i++ {
+	for i := 1; i < len(results); i++ {
 		var cols []field
-		for _, val := range data {
+		for _, val := range results[i] {
 			cols = append(cols, field{Value: reflect.ValueOf(val), Type: reflect.TypeOf(val)})
 		}
 		returnedRows = append(returnedRows, cols)
