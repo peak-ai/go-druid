@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"reflect"
@@ -248,8 +247,6 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 	if err != nil {
 		return &rows{}, err
 	}
-
-	log.Println(string(body))
 
 	code := res.StatusCode
 	if code != http.StatusOK {

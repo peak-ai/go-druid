@@ -41,8 +41,6 @@ func main() {
 		log.Fatal("Cannot ping da ting")
 	}
 
-	log.Println("Connected...")
-
 	rows, err := conn.Queryx("select comment from wikipedia limit 10")
 	if err != nil {
 		log.Panic(err)
