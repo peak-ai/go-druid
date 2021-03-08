@@ -236,12 +236,12 @@ func (c *connection) parseResponse(body []byte) (r *rows, err error) {
 func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 	req, err := c.makeRequest(q)
 	if err != nil {
-		return &rows{}, ErrCreatingRequest
+		return &rows{}, err
 	}
 
 	res, err := c.Client.Do(req)
 	if err != nil {
-		return &rows{}, ErrMakingRequest
+		return &rows{}, err
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
