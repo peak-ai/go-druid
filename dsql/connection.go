@@ -34,6 +34,10 @@ var (
 	ErrMakingRequest = errors.New("druid: error making request to druid server")
 )
 
+func wrapErr(a, b error) error {
+	return fmt.Errorf("%v: %v", a, b)
+}
+
 type key int
 
 const (
@@ -86,19 +90,18 @@ func (c *connection) Begin() (tx driver.Tx, err error) {
 }
 
 // Ping implmements db.conn.Prepare and hits the health endpoint of a broker
-func (c *connection) Ping(ctx context.Context) (err error) {
+func (c *connection) Ping(ctx context.Context) error {
 	res, err := c.Client.Get(fmt.Sprintf("%s%s", c.Cfg.BrokerAddr, c.Cfg.PingEndpoint))
 	if err != nil {
-		err = ErrPinging
-		return
+		return wrapErr(ErrPinging, err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		err = ErrPinging
+		return wrapErr(ErrPinging, err)
 	}
 
-	return
+	return nil
 }
 
 func (c *connection) startRequestPipeline() {
@@ -141,12 +144,12 @@ func (c *connection) makeRequest(q string) (*http.Request, error) {
 
 	payload, err := json.Marshal(request)
 	if err != nil {
-		return nil, ErrRequestForm
+		return nil, wrapErr(ErrRequestForm, err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL, bytes.NewReader(payload))
 	if err != nil {
-		return nil, ErrRequestForm
+		return nil, wrapErr(ErrRequestForm, err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -259,7 +262,7 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 func (c *connection) queryContext(ctx context.Context, q string, args []driver.NamedValue) (*rows, error) {
 	req, err := c.makeRequest(q)
 	if err != nil {
-		return &rows{}, ErrCreatingRequest
+		return &rows{}, wrapErr(ErrCreatingRequest, err)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
