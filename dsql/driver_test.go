@@ -6,12 +6,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 )
 
-var cfg Config = Config{
+var cfg = Config{
 	BrokerAddr:   "localhost:8082",
 	PingEndpoint: "/status/health",
 	// User:         "druidUsername",
@@ -20,14 +19,12 @@ var cfg Config = Config{
 
 func startMockServer(handler http.HandlerFunc) (ts *httptest.Server, url string) {
 	ts = httptest.NewServer(handler)
-	url = strings.Replace(ts.URL, "http://", "", 1)
-	return
+	return ts, ts.URL
 }
 
 func startMockUnstartedServer(handler http.HandlerFunc) (ts *httptest.Server, url string) {
 	ts = httptest.NewUnstartedServer(handler)
-	url = strings.Replace(ts.Listener.Addr().String(), "http://", "", 1)
-	return
+	return ts, "http://"+ts.Listener.Addr().String()
 }
 
 func constructMockResults(header []interface{}, rows [][]interface{}) (b []byte, err error) {
@@ -51,11 +48,14 @@ func TestPing(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	defer ts.Close()
+
 	cfg.BrokerAddr = url
+
 	db, err := sql.Open("druid", cfg.FormatDSN())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -163,8 +163,10 @@ func TestQueryContextWithCancel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
+
 	_, err = db.QueryContext(ctx, "SELECT __time FROM \"wikiticker-2015-09-12-sampled\" LIMIT 10")
 	if ctx.Err() != context.DeadlineExceeded {
 		t.Fatal(err)

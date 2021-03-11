@@ -46,7 +46,7 @@ func (c *Config) FormatDSN() (dsn string) {
 		queryEndpoint = "/druid/v2/sql"
 	}
 
-	return fmt.Sprintf("druid://%s%s?pingEndpoint=%s&queryEndpoint=%s", auth, c.BrokerAddr, pingEndpoint, queryEndpoint)
+	return fmt.Sprintf("%s%s?pingEndpoint=%s&queryEndpoint=%s", auth, c.BrokerAddr, pingEndpoint, queryEndpoint)
 }
 
 // ParseDSN returns a config struct from a dsn string
@@ -54,14 +54,29 @@ func ParseDSN(dsn string) *Config {
 	cfg := &Config{}
 	u, err := url.Parse(dsn)
 	if err != nil {
+		log.Println("dsn:", dsn)
 		log.Fatal("error parsing dsn", err)
 	}
 
-	// TODO: logic to use https if specified
-	u.Scheme = "http"
 	q := u.Query()
 
-	cfg.BrokerAddr = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+	isHttps := false
+	if ssl, ok := q["sslenable"]; ok {
+		if ssl[0] == "true" {
+			isHttps = true
+		}
+	}
+
+	u.Scheme = "http"
+	if isHttps {
+		u.Scheme = "https"
+	}
+
+	cfg.BrokerAddr = fmt.Sprintf("%s://%s%s", u.Scheme, u.Hostname(), u.Path)
+	if u.Port() != "" {
+		cfg.BrokerAddr = fmt.Sprintf("%s://%s:%s%s", u.Scheme, u.Hostname(), u.Path, u.Port())
+	}
+
 	cfg.PingEndpoint = q.Get("pingEndpoint")
 	cfg.QueryEndpoint = q.Get("queryEndpoint")
 	cfg.User = u.User.Username()
