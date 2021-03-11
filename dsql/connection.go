@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"reflect"
@@ -253,6 +254,7 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 
 	code := res.StatusCode
 	if code != http.StatusOK {
+		log.Println(string(body))
 		return &rows{}, fmt.Errorf("error making query request to druid, status code: %d", code)
 	}
 
