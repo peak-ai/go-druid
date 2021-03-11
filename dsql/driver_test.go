@@ -24,7 +24,7 @@ func startMockServer(handler http.HandlerFunc) (ts *httptest.Server, url string)
 
 func startMockUnstartedServer(handler http.HandlerFunc) (ts *httptest.Server, url string) {
 	ts = httptest.NewUnstartedServer(handler)
-	return ts, "http://"+ts.Listener.Addr().String()
+	return ts, "http://" + ts.Listener.Addr().String()
 }
 
 func constructMockResults(header []interface{}, rows [][]interface{}) (b []byte, err error) {
