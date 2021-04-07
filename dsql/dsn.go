@@ -23,6 +23,9 @@ type Config struct {
 	// Smile is whether smile encoding is enabled or not when
 	// requesting data from Druid
 	Smile bool
+
+	// UseSSL determines whether to use SSL or not
+	UseSSL bool
 }
 
 // FormatDSN formats a data source name from a config struct
@@ -46,7 +49,12 @@ func (c *Config) FormatDSN() (dsn string) {
 		queryEndpoint = "/druid/v2/sql"
 	}
 
-	return fmt.Sprintf("%s%s?pingEndpoint=%s&queryEndpoint=%s&sslenable=true", auth, c.BrokerAddr, pingEndpoint, queryEndpoint)
+	sslEnabled := "false"
+	if c.UseSSL {
+		sslEnabled = "true"
+	}
+
+	return fmt.Sprintf("%s%s?pingEndpoint=%s&queryEndpoint=%s&sslenable=%s", auth, c.BrokerAddr, pingEndpoint, queryEndpoint, sslEnabled)
 }
 
 // ParseDSN returns a config struct from a dsn string
