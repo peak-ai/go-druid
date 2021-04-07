@@ -46,7 +46,7 @@ func (c *Config) FormatDSN() (dsn string) {
 		queryEndpoint = "/druid/v2/sql"
 	}
 
-	return fmt.Sprintf("%s%s?pingEndpoint=%s&queryEndpoint=%s", auth, c.BrokerAddr, pingEndpoint, queryEndpoint)
+	return fmt.Sprintf("%s%s?pingEndpoint=%s&queryEndpoint=%s&sslenable=true", auth, c.BrokerAddr, pingEndpoint, queryEndpoint)
 }
 
 // ParseDSN returns a config struct from a dsn string
