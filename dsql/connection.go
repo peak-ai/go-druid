@@ -148,7 +148,10 @@ func (c *connection) makeRequest(q string) (*http.Request, error) {
 		return nil, wrapErr(ErrRequestForm, err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL, bytes.NewReader(payload))
+    fmt.Printf("GO-DRUID: %+v\n", c.Cfg)
+    fmt.Printf("GO-DRUID: %s, %s\n", queryURL, payload)
+
+    req, err := http.NewRequest(http.MethodPost, queryURL, bytes.NewReader(payload))
 	if err != nil {
 		return nil, wrapErr(ErrRequestForm, err)
 	}
