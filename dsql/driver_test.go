@@ -63,6 +63,7 @@ func TestPing(t *testing.T) {
 }
 
 func TestPingWithError(t *testing.T) {
+	// @todo fix test here
 	ts, url := startMockServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	})

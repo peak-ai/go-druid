@@ -78,18 +78,23 @@ func ParseDSN(dsn string) *Config {
 	u.Scheme = "http"
 	if isHttps {
 		u.Scheme = "https"
-	}
 
-	cfg.BrokerAddr = fmt.Sprintf("%s://%s%s", u.Scheme, u.Hostname(), u.Path)
-	if u.Port() != "" {
-		cfg.BrokerAddr = fmt.Sprintf("%s://%s:%s%s", u.Scheme, u.Hostname(), u.Path, u.Port())
 	}
-
 	cfg.PingEndpoint = q.Get("pingEndpoint")
 	cfg.QueryEndpoint = q.Get("queryEndpoint")
 	cfg.User = u.User.Username()
 	pass, _ := u.User.Password()
 	cfg.Passwd = pass
+
+	credentials := ""
+	if cfg.User != "" && cfg.Passwd != "" {
+		credentials = fmt.Sprintf("%s:%s@", cfg.User, cfg.Passwd)
+	}
+
+	cfg.BrokerAddr = fmt.Sprintf("%s://%s%s%s", u.Scheme, credentials, u.Hostname(), u.Path)
+	if u.Port() != "" {
+		cfg.BrokerAddr = fmt.Sprintf("%s://%s%s:%s%s", u.Scheme, credentials, u.Hostname(), u.Port(), u.Path)
+	}
 
 	return cfg
 }
