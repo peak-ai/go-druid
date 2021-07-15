@@ -20,10 +20,6 @@ type Config struct {
 	// DateField field to use as the date field
 	DateField string
 
-	// Smile is whether smile encoding is enabled or not when
-	// requesting data from Druid
-	Smile bool
-
 	// UseSSL determines whether to use SSL or not
 	UseSSL bool
 }

@@ -1,7 +1,9 @@
 package dsql
 
 import (
+	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -11,11 +13,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"reflect"
 	"sync"
-
-	"github.com/zencoder/go-smile/smile"
 )
 
 var (
@@ -139,7 +138,7 @@ func (c *connection) makeRequest(q string) (*http.Request, error) {
 	queryURL := fmt.Sprintf("%s%s", c.Cfg.BrokerAddr, c.Cfg.QueryEndpoint)
 	request := &queryRequest{
 		Query:        q,
-		ResultFormat: "array",
+		ResultFormat: "arrayLines",
 		Header:       true,
 	}
 
@@ -154,48 +153,40 @@ func (c *connection) makeRequest(q string) (*http.Request, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-
-	// Selects whether or not to request as JSON, or Jackson Smile encoding
-	// https://druid.apache.org/docs/latest/querying/querying.html
-	// This might not work with SQL queries...
-	if maybeEnv("DRUID_SMILE", "false") == "true" {
-		req.Header.Set("Accept", "application/x-jackson-smile")
-	}
+	req.Header.Add("Accept-Encoding", "gzip,deflate,br")
+	req.Header.Add("Connection", "keep-alive")
 
 	return req, nil
 }
 
-func (c *connection) parseJSONResponse(body []byte) (queryResponse, error) {
-	var results queryResponse
-	err := json.Unmarshal(body, &results)
-	return results, err
-}
-
-func (c *connection) parseSmileResponse(body []byte) (queryResponse, error) {
-	decoded, err := smile.DecodeToObject(body)
-	if err != nil {
-		return queryResponse{}, err
-	}
-
-	return decoded.(queryResponse), nil
-}
-
-func maybeEnv(a, b string) string {
-	val := os.Getenv(a)
-	if val == "" {
-		return b
-	}
-	return val
-}
-
-func (c *connection) parseResponse(body []byte) (r *rows, err error) {
+func (c *connection) parseJSONResponse(body *bufio.Reader) (queryResponse, error) {
 	var results queryResponse
 
-	if maybeEnv("DRUID_SMILE", "false") == "true" {
-		results, err = c.parseSmileResponse(body)
-	} else {
-		results, err = c.parseJSONResponse(body)
+	in := bufio.NewScanner(body)
+
+	for in.Scan() {
+		line := in.Bytes()
+
+		if len(line) > 0 {
+			var row []interface{}
+			err := json.Unmarshal(in.Bytes(), &row)
+			if err != nil {
+				return results, err
+			}
+
+			results = append(results, row)
+		}
 	}
+
+	if err := in.Err(); err != nil {
+		return results, err
+	}
+
+	return results, nil
+}
+
+func (c *connection) parseResponse(body *bufio.Reader) (r *rows, err error) {
+	results, err := c.parseJSONResponse(body)
 
 	if err != nil {
 		return &rows{}, err
@@ -243,22 +234,34 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 	}
 
 	res, err := c.Client.Do(req)
-	if err != nil {
-		return &rows{}, err
-	}
+	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return &rows{}, err
 	}
 
 	code := res.StatusCode
 	if code != http.StatusOK {
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return &rows{}, err
+		}
+
 		log.Println(string(body))
 		return &rows{}, fmt.Errorf("error making query request to druid, status code: %d", code)
 	}
 
-	return c.parseResponse(body)
+	reader, err := gzip.NewReader(res.Body)
+	if err != nil {
+		return &rows{}, err
+	}
+
+	response, err := c.parseResponse(bufio.NewReader(reader))
+	if err != nil {
+		return &rows{}, err
+	}
+
+	return response, nil
 }
 
 func (c *connection) queryContext(ctx context.Context, q string, args []driver.NamedValue) (*rows, error) {
@@ -280,7 +283,7 @@ func (c *connection) queryContext(ctx context.Context, q string, args []driver.N
 
 	select {
 	case body := <-c.resultsCh:
-		r, err = c.parseResponse(body)
+		r, err = c.parseResponse(bufio.NewReader(bytes.NewReader(body)))
 		if err != nil {
 			return r, err
 		}

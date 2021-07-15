@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 
-	// "database/sql"
 	"github.com/jmoiron/sqlx"
 	"github.com/peak-ai/go-druid/dsql"
 )
@@ -21,7 +20,6 @@ func newConnection() (*sqlx.DB, error) {
 		PingEndpoint: "/status/health",
 		DateFormat:   "iso",
 		DateField:    "created_at",
-		Smile:        true,
 	}
 	db, err := sqlx.Open("druid", cfg.FormatDSN())
 	if err != nil {
@@ -38,7 +36,7 @@ func main() {
 	}
 
 	if err := conn.Ping(); err != nil {
-		log.Fatal("Cannot ping da ting")
+		log.Fatal(err)
 	}
 
 	rows, err := conn.Queryx("select comment from wikipedia limit 10")
@@ -53,6 +51,6 @@ func main() {
 			log.Panic(err)
 		}
 
-		log.Println(result)
+		log.Printf("%v\n", result)
 	}
 }
