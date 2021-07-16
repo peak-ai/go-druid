@@ -3,7 +3,6 @@ package dsql
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -153,7 +152,6 @@ func (c *connection) makeRequest(q string) (*http.Request, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Add("Accept-Encoding", "gzip,deflate,br")
 	req.Header.Add("Connection", "keep-alive")
 
 	return req, nil
@@ -234,20 +232,14 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 	}
 
 	res, err := c.Client.Do(req)
-	defer res.Body.Close()
 
-	if err != nil {
-		return &rows{}, err
-	}
-
-	reader, err := gzip.NewReader(res.Body)
 	if err != nil {
 		return &rows{}, err
 	}
 
 	code := res.StatusCode
 	if code != http.StatusOK {
-		body, err := ioutil.ReadAll(reader)
+		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return &rows{}, err
 		}
@@ -256,7 +248,7 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 		return &rows{}, fmt.Errorf("error making query request to druid, status code: %d", code)
 	}
 
-	response, err := c.parseResponse(bufio.NewReader(reader))
+	response, err := c.parseResponse(bufio.NewReader(res.Body))
 	if err != nil {
 		return &rows{}, err
 	}
