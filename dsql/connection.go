@@ -240,20 +240,20 @@ func (c *connection) query(q string, args []driver.Value) (*rows, error) {
 		return &rows{}, err
 	}
 
+	reader, err := gzip.NewReader(res.Body)
+	if err != nil {
+		return &rows{}, err
+	}
+
 	code := res.StatusCode
 	if code != http.StatusOK {
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := ioutil.ReadAll(reader)
 		if err != nil {
 			return &rows{}, err
 		}
 
 		log.Println(string(body))
 		return &rows{}, fmt.Errorf("error making query request to druid, status code: %d", code)
-	}
-
-	reader, err := gzip.NewReader(res.Body)
-	if err != nil {
-		return &rows{}, err
 	}
 
 	response, err := c.parseResponse(bufio.NewReader(reader))
