@@ -1,9 +1,11 @@
 package dsql
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,12 +30,29 @@ func startMockUnstartedServer(handler http.HandlerFunc) (ts *httptest.Server, ur
 }
 
 func constructMockResults(header []interface{}, rows [][]interface{}) (b []byte, err error) {
-	var mockResults [][]interface{}
-	mockResults = append(mockResults, header)
-	mockResults = append(mockResults, rows...)
+	mockResults := &bytes.Buffer{}
 
-	b, err = json.Marshal(mockResults)
-	return
+	h, err := json.Marshal(header)
+	if err != nil {
+		return mockResults.Bytes(), err
+	}
+
+	mockResults.Write(h)
+	mockResults.WriteString("\n")
+
+	for _, row := range rows {
+		r, err := json.Marshal(row)
+		if err != nil {
+			return mockResults.Bytes(), err
+		}
+
+		mockResults.Write(r)
+		mockResults.WriteString("\n")
+	}
+
+	fmt.Println(mockResults.String())
+
+	return mockResults.Bytes(), nil
 }
 
 func TestConnect(t *testing.T) {

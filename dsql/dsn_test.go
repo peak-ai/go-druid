@@ -23,7 +23,7 @@ func TestCanParseURLs(t *testing.T) {
 		},
 		{
 			input:    "druid://test.com?sslenable=true",
-			expected: "https://test.com?pingEndpoint=/status/health&queryEndpoint=/druid/v2/sql",
+			expected: "https://test.com?pingEndpoint=/status/health&queryEndpoint=/druid/v2/sql&sslenable=false",
 		},
 		{
 			input:    "//127.0.0.1:8080",
